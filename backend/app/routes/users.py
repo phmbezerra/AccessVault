@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.database.connection import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter()
 
@@ -43,3 +43,25 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    existing_email = db.query(User).filter(User.email == data.email, User.id != user_id).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email já está em uso por outro usuário.")
+
+    user.name = data.name
+    user.email = data.email
+    user.role = data.role
+    user.is_active = data.is_active
+
+    db.commit()
+    db.refresh(user)
+
+    return user
