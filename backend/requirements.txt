@@ -2,5 +2,4 @@ fastapi
 uvicorn
 sqlalchemy
 email-validator
-passlib[bcrypt]
-bcrypt
+passlib
