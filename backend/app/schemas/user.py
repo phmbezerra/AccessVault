@@ -9,6 +9,13 @@ class UserCreate(BaseModel):
     role: str = "colaborador"
 
 
+class UserUpdate(BaseModel):
+    name: str
+    email: EmailStr
+    role: str
+    is_active: bool
+
+
 class UserResponse(BaseModel):
     id: int
     name: str
