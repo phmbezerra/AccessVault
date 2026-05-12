@@ -9,8 +9,24 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[SystemResponse])
-def list_systems(db: Session = Depends(get_db)):
-    return db.query(System).all()
+def list_systems(
+    is_active: bool | None = None,
+    criticality: str | None = None,
+    owner_area: str | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(System)
+
+    if is_active is not None:
+        query = query.filter(System.is_active == is_active)
+
+    if criticality is not None:
+        query = query.filter(System.criticality == criticality)
+
+    if owner_area is not None:
+        query = query.filter(System.owner_area == owner_area)
+
+    return query.all()
 
 
 @router.get("/{system_id}", response_model=SystemResponse)
