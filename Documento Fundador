@@ -1,0 +1,449 @@
+1. Nome do projeto
+
+AccessVault
+
+2. Resumo
+
+O AccessVault é um sistema web de gestão de acessos, credenciais e solicitações internas, criado para ajudar empresas e equipes a controlarem quem tem acesso a quais sistemas, com mais organização, segurança e rastreabilidade.
+
+O projeto nasce para resolver um problema real: em muitas equipes, acessos são concedidos sem padrão, senhas são compartilhadas de forma insegura, não existe histórico de aprovação e revogação, e a saída de um colaborador muitas vezes não gera revisão dos privilégios que ele possuía.
+
+O AccessVault centraliza esse processo em uma aplicação única, com foco em:
+
+controle
+segurança
+visibilidade
+automação básica
+experiência moderna
+
+3. Problema que o projeto resolve
+
+Em empresas pequenas e médias, o controle de acesso geralmente é mal organizado. Isso gera problemas como:
+
+acessos concedidos sem registro
+usuários com privilégios excessivos
+ausência de histórico de mudanças
+senhas compartilhadas em locais inseguros
+dificuldade de saber quem tem acesso a quê
+demora para aprovar solicitações
+acessos que continuam ativos mesmo após perda de necessidade
+falta de rastreabilidade para auditoria interna
+
+O AccessVault foi pensado para atacar exatamente esse cenário.
+
+4. Objetivo do projeto
+
+Criar uma aplicação web que permita gerenciar acessos internos de forma centralizada, com cadastro de usuários, sistemas, concessões, solicitações, aprovações e registros históricos.
+
+O objetivo da primeira versão é entregar um MVP funcional, bem estruturado e com aparência profissional, que demonstre capacidade de construção de:
+
+sistema com regras de negócio
+autenticação
+CRUD
+banco de dados
+dashboard
+histórico de ações
+interface de administração
+
+5. Público-alvo
+
+O AccessVault é voltado para:
+
+pequenas empresas
+startups
+agências
+times administrativos
+equipes que usam várias ferramentas digitais
+gestores que precisam controlar permissões internas
+organizações que ainda não possuem um processo formal de governança de acesso
+
+6. Proposta de valor
+
+O AccessVault oferece uma forma simples e profissional de responder perguntas como:
+
+Quem tem acesso ao sistema X?
+Quem aprovou esse acesso?
+Esse acesso ainda deveria estar ativo?
+Quais solicitações estão pendentes?
+Quais usuários possuem nível administrativo?
+Quais acessos vencem em breve?
+O que foi alterado recentemente?
+
+A proposta é transformar um processo improvisado em um fluxo mais seguro e controlado.
+
+7. Escopo do MVP
+
+A primeira versão do AccessVault deve conter os seguintes módulos:
+
+7.1 Autenticação
+login
+logout
+controle de sessão
+diferenciação de perfil de usuário
+
+7.2 Usuários
+cadastro de usuário
+listagem de usuários.
+edição de usuário
+ativação e desativação de conta
+definição de papel/perfil
+
+7.3 Sistemas
+cadastro de sistemas/ferramentas
+categorização por tipo
+responsável pelo sistema
+criticidade do sistema
+
+7.4 Acessos
+registrar que um usuário possui acesso a um sistema
+definir nível de acesso
+data de concessão
+data de expiração
+status do acesso
+observações
+
+7.5 Solicitações de acesso
+usuário solicita acesso a um sistema
+gestor/admin aprova ou recusa
+justificativa do pedido
+justificativa da decisão
+status da solicitação
+
+7.6 Dashboard
+total de usuários
+total de sistemas
+acessos ativos
+solicitações pendentes
+acessos próximos do vencimento
+últimas ações
+
+7.7 Gerador de senhas
+gerar senha forte
+personalizar tamanho e composição
+copiar senha
+indicar força da senha
+
+7.8 Histórico de ações
+registro de eventos relevantes
+exibir quem fez a ação
+exibir o que foi alterado
+data e hora da ação
+
+8. Perfis de usuário
+
+O sistema terá três perfis principais:
+
+Colaborador
+
+Pode:
+
+acessar o sistema
+visualizar seus próprios acessos
+solicitar acesso a sistemas
+
+Não pode:
+
+aprovar solicitações
+gerenciar usuários
+cadastrar sistemas
+Gestor
+
+Pode:
+
+aprovar ou recusar solicitações
+visualizar usuários da equipe
+acompanhar acessos e histórico
+
+Não pode:
+
+administrar tudo do sistema, se essa ação for restrita a admin
+Admin
+
+Pode:
+
+gerenciar usuários
+cadastrar sistemas
+conceder e revogar acessos
+aprovar solicitações
+visualizar e administrar todo o sistema
+
+9. Entidades principais do sistema
+Usuário
+
+Representa cada pessoa que utiliza ou pode receber acesso.
+
+Campos principais:
+
+nome
+email
+senha
+papel
+status
+data de criação
+Sistema
+
+Representa cada ferramenta/plataforma controlada pelo AccessVault.
+
+Campos principais:
+
+nome
+categoria
+descrição
+responsável
+criticidade
+Acesso
+
+Representa um vínculo ativo ou inativo entre um usuário e um sistema.
+
+Campos principais:
+
+usuário
+sistema
+nível de acesso
+concedido por
+data de concessão
+data de expiração
+status
+observações
+Solicitação de acesso
+
+Representa um pedido feito por um usuário para acessar um sistema.
+
+Campos principais:
+
+solicitante
+sistema
+nível solicitado
+justificativa
+status
+revisado por
+data de revisão
+observação da revisão
+Log de atividade
+
+Representa o histórico de ações realizadas no sistema.
+
+Campos principais:
+
+ator
+tipo da ação
+alvo
+descrição
+data/hora
+
+10. Regras de negócio
+
+Algumas regras importantes da v1:
+
+um colaborador não pode aprovar sua própria solicitação
+somente gestor ou admin podem aprovar solicitações
+acessos podem ter data de expiração
+acessos expirados devem aparecer como alerta
+toda aprovação ou recusa gera log
+toda criação ou remoção de acesso gera log
+usuários desativados não conseguem entrar
+solicitações recusadas permanecem no histórico
+um sistema pode ter diferentes níveis de acesso por usuário
+
+11. Estrutura inicial do banco de dados
+Tabela users
+id
+name
+email
+password_hash
+role
+is_active
+created_at
+Tabela systems
+id
+name
+category
+description
+owner_name
+criticality
+created_at
+Tabela accesses
+id
+user_id
+system_id
+access_level
+granted_by
+granted_at
+expires_at
+status
+notes
+Tabela access_requests
+id
+requester_id
+system_id
+requested_level
+justification
+status
+reviewed_by
+reviewed_at
+review_note
+created_at
+Tabela activity_logs
+id
+actor_id
+action_type
+target_type
+target_id
+description
+created_at
+
+12. Telas do MVP
+Tela de login
+
+Campos:
+
+email
+senha
+Dashboard
+
+Componentes:
+
+cards com métricas
+solicitações pendentes
+acessos críticos
+últimos logs
+Tela de usuários
+lista de usuários
+filtros
+cadastro
+edição
+ativação/desativação
+Tela de sistemas
+cadastro de ferramentas
+listagem
+categoria
+criticidade
+responsável
+Tela de acessos
+listar acessos
+filtrar por usuário/sistema/status
+criar ou revogar acesso
+Tela de solicitações
+criar solicitação
+aprovar
+recusar
+acompanhar status
+Tela de gerador de senhas
+opções de geração
+senha gerada
+medidor de força
+copiar
+Tela de logs
+ações registradas
+data/hora
+filtros simples
+
+13. Stack do projeto
+Backend
+
+Python + FastAPI
+
+Banco de dados
+
+SQLite no início
+
+Frontend
+
+HTML + CSS + JavaScript
+
+Evoluções futuras possíveis
+PostgreSQL
+React
+JWT mais robusto
+envio de e-mails
+deploy completo em produção
+
+14. Direção visual
+
+O AccessVault deve ter aparência de software premium de segurança e gestão.
+
+Estilo visual desejado
+moderno
+limpo
+confiável
+técnico
+organizado
+com cara de SaaS
+Paleta sugerida
+azul escuro
+roxo
+cinza grafite
+detalhes em ciano
+Elementos visuais
+cards
+painéis
+tabelas limpas
+indicadores de status
+ícones de escudo, cadeado, chave e alerta
+dashboard com hierarquia clara
+
+15. Roadmap de desenvolvimento
+Fase 1 — fundação
+criar estrutura do projeto
+configurar backend
+configurar banco
+criar autenticação básica
+criar layout base
+Fase 2 — usuários e sistemas
+CRUD de usuários
+CRUD de sistemas
+Fase 3 — acessos
+cadastrar acessos
+listar acessos
+revogar acessos
+Fase 4 — solicitações
+abrir solicitação
+aprovar/recusar
+atualizar dashboard
+Fase 5 — segurança e histórico
+logs de atividade
+gerador de senhas
+alertas de expiração
+Fase 6 — refinamento
+filtros
+busca
+visual premium
+responsividade
+melhorias de UX
+
+16. Diferenciais do projeto
+
+O AccessVault não será só “mais um CRUD”.
+
+Ele vai se destacar por:
+
+resolver um problema real
+ter regras de negócio claras
+misturar segurança, gestão e organização
+ser expansível
+ter estética forte de produto
+ser muito mais relevante para portfólio do que projetos genéricos
+
+17. Melhorias futuras
+
+Depois do MVP, o projeto pode crescer para:
+
+alertas automáticos por e-mail
+revisão periódica de acessos
+relatórios exportáveis
+suporte multiempresa
+permissões mais granulares
+integração com IA para identificar riscos
+painel analítico de segurança
+onboarding de sistemas
+auditoria mais avançada
+
+18. Meta do projeto
+
+A meta é construir um sistema que:
+
+seja bonito
+funcione de verdade
+demonstre maturidade técnica
+possa ser mostrado no portfólio com orgulho
+e tenha nível suficiente para impressionar recrutador
