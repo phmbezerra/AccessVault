@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.database.connection import engine
 from app.database.base import Base
 from app.models.user import User
@@ -7,6 +8,14 @@ from app.models.access import Access
 from app.routes import users, auth, systems, accesses, dashboard
 
 app = FastAPI(title="AccessVault")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 Base.metadata.create_all(bind=engine)
 
