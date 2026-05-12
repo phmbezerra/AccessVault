@@ -10,9 +10,20 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[UserResponse])
-def list_users(db: Session = Depends(get_db)):
-    return db.query(User).all()
+def list_users(
+    is_active: bool | None = None,
+    role: str | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(User)
 
+    if is_active is not None:
+        query = query.filter(User.is_active == is_active)
+
+    if role is not None:
+        query = query.filter(User.role == role)
+
+    return query.all()
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
