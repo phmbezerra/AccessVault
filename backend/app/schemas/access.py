@@ -1,17 +1,19 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
+from app.core.enums import AccessLevel, AccessStatus
 
 
 class AccessCreate(BaseModel):
     user_id: int
     system_id: int
-    access_level: str = Field(..., min_length=2, max_length=50)
-    status: str = Field(..., min_length=2, max_length=30)
+    access_level: AccessLevel
+    status: AccessStatus
 
 
 class AccessUpdate(BaseModel):
-    access_level: str = Field(..., min_length=2, max_length=50)
-    status: str = Field(..., min_length=2, max_length=30)
+    access_level: AccessLevel
+    status: AccessStatus
     is_active: bool
 
 
@@ -19,8 +21,8 @@ class AccessResponse(BaseModel):
     id: int
     user_id: int
     system_id: int
-    access_level: str
-    status: str
+    access_level: AccessLevel
+    status: AccessStatus
     is_active: bool
     granted_at: datetime
 
