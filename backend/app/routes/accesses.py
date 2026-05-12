@@ -11,8 +11,32 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[AccessResponse])
-def list_accesses(db: Session = Depends(get_db)):
-    return db.query(Access).all()
+def list_accesses(
+    is_active: bool | None = None,
+    status: str | None = None,
+    access_level: str | None = None,
+    user_id: int | None = None,
+    system_id: int | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Access)
+
+    if is_active is not None:
+        query = query.filter(Access.is_active == is_active)
+
+    if status is not None:
+        query = query.filter(Access.status == status)
+
+    if access_level is not None:
+        query = query.filter(Access.access_level == access_level)
+
+    if user_id is not None:
+        query = query.filter(Access.user_id == user_id)
+
+    if system_id is not None:
+        query = query.filter(Access.system_id == system_id)
+
+    return query.all()
 
 
 @router.get("/{access_id}", response_model=AccessResponse)
