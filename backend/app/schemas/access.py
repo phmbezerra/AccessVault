@@ -1,7 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.enums import AccessLevel, AccessStatus
+from app.core.enums import AccessLevel, AccessStatus, UserRole, SystemCriticality
 
 
 class AccessCreate(BaseModel):
@@ -17,6 +17,26 @@ class AccessUpdate(BaseModel):
     is_active: bool
 
 
+class AccessUserInfo(BaseModel):
+    id: int
+    name: str
+    email: str
+    role: UserRole
+
+    class Config:
+        from_attributes = True
+
+
+class AccessSystemInfo(BaseModel):
+    id: int
+    name: str
+    owner_area: str
+    criticality: SystemCriticality
+
+    class Config:
+        from_attributes = True
+
+
 class AccessResponse(BaseModel):
     id: int
     user_id: int
@@ -25,6 +45,8 @@ class AccessResponse(BaseModel):
     status: AccessStatus
     is_active: bool
     granted_at: datetime
+    user: AccessUserInfo
+    system: AccessSystemInfo
 
     class Config:
         from_attributes = True
