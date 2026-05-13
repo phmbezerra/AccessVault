@@ -64,9 +64,14 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-    existing_email = db.query(User).filter(User.email == data.email, User.id != user_id).first()
+    existing_email = (
+        db.query(User)
+        .filter(User.email == data.email, User.id != user_id)
+        .first()
+    )
+
     if existing_email:
-        raise HTTPException(status_code=400, detail="Email já está em uso por outro usuário.")
+        raise HTTPException(status_code=400, detail="Email já cadastrado por outro usuário.")
 
     user.name = data.name
     user.email = data.email
