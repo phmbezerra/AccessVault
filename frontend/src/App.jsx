@@ -25,6 +25,17 @@ function App() {
   const [lastUpdate, setLastUpdate] = useState("");
   const [error, setError] = useState("");
 
+  const [userForm, setUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "colaborador",
+  });
+
+  const [userFormLoading, setUserFormLoading] = useState(false);
+  const [userFormMessage, setUserFormMessage] = useState("");
+  const [userFormError, setUserFormError] = useState("");
+
   const fetchAllData = async () => {
     try {
       setLoading(true);
@@ -64,6 +75,58 @@ function App() {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  const handleUserFormChange = (event) => {
+    const { name, value } = event.target;
+    setUserForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateUser = async (event) => {
+    event.preventDefault();
+
+    try {
+      setUserFormLoading(true);
+      setUserFormMessage("");
+      setUserFormError("");
+
+      const response = await fetch(`${API_BASE}/users/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userForm),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const apiMessage =
+          errorData?.detail ||
+          "Não foi possível cadastrar o usuário.";
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível cadastrar o usuário."
+        );
+      }
+
+      setUserForm({
+        name: "",
+        email: "",
+        password: "",
+        role: "colaborador",
+      });
+
+      setUserFormMessage("Usuário cadastrado com sucesso.");
+      await fetchAllData();
+    } catch (err) {
+      setUserFormError(err.message || "Erro ao cadastrar usuário.");
+    } finally {
+      setUserFormLoading(false);
+    }
+  };
 
   const mainCards = [
     {
@@ -222,6 +285,90 @@ function App() {
               </a>
             </div>
           </article>
+        </section>
+
+        <section className="form-section">
+          <div className="section-heading">
+            <h2>Cadastrar usuário</h2>
+            <span>Criação direta pela interface</span>
+          </div>
+
+          <form className="form-card" onSubmit={handleCreateUser}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="name">Nome</label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={userForm.name}
+                  onChange={handleUserFormChange}
+                  placeholder="Digite o nome"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={userForm.email}
+                  onChange={handleUserFormChange}
+                  placeholder="Digite o email"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="password">Senha</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={userForm.password}
+                  onChange={handleUserFormChange}
+                  placeholder="Mínimo de 6 caracteres"
+                  minLength={6}
+                  maxLength={72}
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="role">Perfil</label>
+                <select
+                  id="role"
+                  name="role"
+                  value={userForm.role}
+                  onChange={handleUserFormChange}
+                >
+                  <option value="colaborador">colaborador</option>
+                  <option value="gestor">gestor</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={userFormLoading}
+              >
+                {userFormLoading ? "Cadastrando..." : "Cadastrar usuário"}
+              </button>
+            </div>
+
+            {userFormMessage && (
+              <p className="form-message success">{userFormMessage}</p>
+            )}
+
+            {userFormError && (
+              <p className="form-message error">{userFormError}</p>
+            )}
+          </form>
         </section>
 
         <section className="table-section">
