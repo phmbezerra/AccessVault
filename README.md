@@ -151,8 +151,6 @@ Projeto em evolução, com backend funcional, frontend inicial integrado e estru
 ## Autor
 
 - Paulo Henrique de Melo Bezerra
-<<<<<<< HEAD
 - GitHub: phmbezerra
-=======
 - GitHub: phmbezerra
 >>>>>>> ec1d03b56517da020390739f87e878da0823c72c
