@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
 const API_BASE = "http://127.0.0.1:8000";
+const TOKEN_STORAGE_KEY = "accessvault_token";
+const USER_STORAGE_KEY = "accessvault_user";
 
 function App() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -27,6 +29,17 @@ function App() {
   const [lastUpdate, setLastUpdate] = useState("");
   const [error, setError] = useState("");
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authToken, setAuthToken] = useState("");
+  const [loggedUser, setLoggedUser] = useState(null);
+
+  const [loginForm, setLoginForm] = useState({
+    email: "",
+    password: "",
+  });
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+
   const [userForm, setUserForm] = useState({
     name: "",
     email: "",
@@ -49,6 +62,41 @@ function App() {
   const [systemFormMessage, setSystemFormMessage] = useState("");
   const [systemFormError, setSystemFormError] = useState("");
 
+  const [accessForm, setAccessForm] = useState({
+    user_id: "",
+    system_id: "",
+    access_level: "leitura",
+    status: "ativo",
+  });
+
+  const [accessFormLoading, setAccessFormLoading] = useState(false);
+  const [accessFormMessage, setAccessFormMessage] = useState("");
+  const [accessFormError, setAccessFormError] = useState("");
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+
+    if (savedToken && savedUser) {
+      try {
+        setAuthToken(savedToken);
+        setLoggedUser(JSON.parse(savedUser));
+        setIsAuthenticated(true);
+      } catch {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(USER_STORAGE_KEY);
+      }
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAllData();
+    }
+  }, [isAuthenticated]);
+
   const fetchAllData = async () => {
     try {
       setLoading(true);
@@ -65,13 +113,12 @@ function App() {
         throw new Error("Falha ao carregar os dados da aplicação.");
       }
 
-      const [summaryData, usersData, systemsData, accessesData] =
-        await Promise.all([
-          summaryRes.json(),
-          usersRes.json(),
-          systemsRes.json(),
-          accessesRes.json(),
-        ]);
+      const [summaryData, usersData, systemsData, accessesData] = await Promise.all([
+        summaryRes.json(),
+        usersRes.json(),
+        systemsRes.json(),
+        accessesRes.json(),
+      ]);
 
       setSummary(summaryData);
       setUsers(usersData);
@@ -85,9 +132,81 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  const handleLoginFormChange = (event) => {
+    const { name, value } = event.target;
+    setLoginForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+
+    try {
+      setLoginLoading(true);
+      setLoginError("");
+
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginForm),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const apiMessage = errorData?.detail || "Não foi possível fazer login.";
+
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível fazer login."
+        );
+      }
+
+      const data = await response.json();
+
+      const userData = {
+        user_id: data.user_id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+      };
+
+      localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+
+      setAuthToken(data.access_token);
+      setLoggedUser(userData);
+      setIsAuthenticated(true);
+      setLoginForm({
+        email: "",
+        password: "",
+      });
+    } catch (err) {
+      setLoginError(err.message || "Erro ao fazer login.");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+
+    setAuthToken("");
+    setLoggedUser(null);
+    setIsAuthenticated(false);
+    setActiveSection("dashboard");
+    setUsers([]);
+    setSystems([]);
+    setAccesses([]);
+    setError("");
+    setLastUpdate("");
+    setLoading(false);
+  };
 
   const handleUserFormChange = (event) => {
     const { name, value } = event.target;
@@ -100,6 +219,14 @@ function App() {
   const handleSystemFormChange = (event) => {
     const { name, value } = event.target;
     setSystemForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleAccessFormChange = (event) => {
+    const { name, value } = event.target;
+    setAccessForm((prev) => ({
       ...prev,
       [name]: value,
     }));
@@ -123,8 +250,7 @@ function App() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        const apiMessage =
-          errorData?.detail || "Não foi possível cadastrar o usuário.";
+        const apiMessage = errorData?.detail || "Não foi possível cadastrar o usuário.";
 
         throw new Error(
           typeof apiMessage === "string"
@@ -167,8 +293,7 @@ function App() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        const apiMessage =
-          errorData?.detail || "Não foi possível cadastrar o sistema.";
+        const apiMessage = errorData?.detail || "Não foi possível cadastrar o sistema.";
 
         throw new Error(
           typeof apiMessage === "string"
@@ -190,6 +315,57 @@ function App() {
       setSystemFormError(err.message || "Erro ao cadastrar sistema.");
     } finally {
       setSystemFormLoading(false);
+    }
+  };
+
+  const handleCreateAccess = async (event) => {
+    event.preventDefault();
+
+    try {
+      setAccessFormLoading(true);
+      setAccessFormMessage("");
+      setAccessFormError("");
+
+      const payload = {
+        user_id: Number(accessForm.user_id),
+        system_id: Number(accessForm.system_id),
+        access_level: accessForm.access_level,
+        status: accessForm.status,
+      };
+
+      const response = await fetch(`${API_BASE}/accesses/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authToken ? `Bearer ${authToken}` : "",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const apiMessage = errorData?.detail || "Não foi possível cadastrar o acesso.";
+
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível cadastrar o acesso."
+        );
+      }
+
+      setAccessForm({
+        user_id: "",
+        system_id: "",
+        access_level: "leitura",
+        status: "ativo",
+      });
+
+      setAccessFormMessage("Acesso cadastrado com sucesso.");
+      await fetchAllData();
+    } catch (err) {
+      setAccessFormError(err.message || "Erro ao cadastrar acesso.");
+    } finally {
+      setAccessFormLoading(false);
     }
   };
 
@@ -243,6 +419,20 @@ function App() {
     },
   ];
 
+  const pageTitle = useMemo(() => {
+    if (activeSection === "dashboard") return "Visão geral do ambiente";
+    if (activeSection === "users") return "Usuários";
+    if (activeSection === "systems") return "Sistemas";
+    return "Acessos";
+  }, [activeSection]);
+
+  const pageLabel = useMemo(() => {
+    if (activeSection === "dashboard") return "Dashboard geral";
+    if (activeSection === "users") return "Gestão de usuários";
+    if (activeSection === "systems") return "Gestão de sistemas";
+    return "Gestão de acessos";
+  }, [activeSection]);
+
   const renderDashboard = () => (
     <>
       <section className="hero-card">
@@ -263,12 +453,6 @@ function App() {
           </span>
         </div>
       </section>
-
-      {error && (
-        <section className="alert-card">
-          <strong>Erro:</strong> {error}
-        </section>
-      )}
 
       <section className="cards-grid">
         {mainCards.map((card) => (
@@ -308,17 +492,17 @@ function App() {
           </div>
 
           <div className="quick-actions">
+            <button className="nav-action-button" onClick={() => setActiveSection("users")}>
+              Ir para usuários
+            </button>
+            <button className="nav-action-button" onClick={() => setActiveSection("systems")}>
+              Ir para sistemas
+            </button>
+            <button className="nav-action-button" onClick={() => setActiveSection("accesses")}>
+              Ir para acessos
+            </button>
             <a href={`${API_BASE}/docs`} target="_blank" rel="noreferrer">
               Abrir Swagger
-            </a>
-            <a href={`${API_BASE}/users/`} target="_blank" rel="noreferrer">
-              Ver usuários
-            </a>
-            <a href={`${API_BASE}/systems/`} target="_blank" rel="noreferrer">
-              Ver sistemas
-            </a>
-            <a href={`${API_BASE}/accesses/`} target="_blank" rel="noreferrer">
-              Ver acessos
             </a>
           </div>
         </article>
@@ -402,13 +586,8 @@ function App() {
             </button>
           </div>
 
-          {userFormMessage && (
-            <p className="form-message success">{userFormMessage}</p>
-          )}
-
-          {userFormError && (
-            <p className="form-message error">{userFormError}</p>
-          )}
+          {userFormMessage && <p className="form-message success">{userFormMessage}</p>}
+          {userFormError && <p className="form-message error">{userFormError}</p>}
         </form>
       </section>
 
@@ -537,13 +716,8 @@ function App() {
             </button>
           </div>
 
-          {systemFormMessage && (
-            <p className="form-message success">{systemFormMessage}</p>
-          )}
-
-          {systemFormError && (
-            <p className="form-message error">{systemFormError}</p>
-          )}
+          {systemFormMessage && <p className="form-message success">{systemFormMessage}</p>}
+          {systemFormError && <p className="form-message error">{systemFormError}</p>}
         </form>
       </section>
 
@@ -598,54 +772,195 @@ function App() {
   );
 
   const renderAccesses = () => (
-    <section className="table-section">
-      <div className="section-heading">
-        <h2>Acessos cadastrados</h2>
-        <span>{accesses.length} registros</span>
-      </div>
+    <>
+      <section className="form-section">
+        <div className="section-heading">
+          <h2>Cadastrar acesso</h2>
+          <span>Relacionamento entre usuário e sistema</span>
+        </div>
 
-      <div className="table-card">
-        <table>
-          <thead>
-            <tr>
-              <th>Usuário</th>
-              <th>Sistema</th>
-              <th>Nível</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accesses.length > 0 ? (
-              accesses.map((access) => (
-                <tr key={access.id}>
-                  <td>{access.user?.name || `Usuário #${access.user_id}`}</td>
-                  <td>{access.system?.name || `Sistema #${access.system_id}`}</td>
-                  <td>
-                    <span className="role-badge">{access.access_level}</span>
-                  </td>
-                  <td>
-                    <span
-                      className={`status-badge ${
-                        access.is_active ? "active" : "inactive"
-                      }`}
-                    >
-                      {access.status}
-                    </span>
+        <form className="form-card" onSubmit={handleCreateAccess}>
+          <div className="form-grid">
+            <div className="form-field">
+              <label htmlFor="user_id">Usuário</label>
+              <select
+                id="user_id"
+                name="user_id"
+                value={accessForm.user_id}
+                onChange={handleAccessFormChange}
+                required
+              >
+                <option value="">Selecione um usuário</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} - {user.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="system_id">Sistema</label>
+              <select
+                id="system_id"
+                name="system_id"
+                value={accessForm.system_id}
+                onChange={handleAccessFormChange}
+                required
+              >
+                <option value="">Selecione um sistema</option>
+                {systems.map((system) => (
+                  <option key={system.id} value={system.id}>
+                    {system.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="access_level">Nível de acesso</label>
+              <select
+                id="access_level"
+                name="access_level"
+                value={accessForm.access_level}
+                onChange={handleAccessFormChange}
+              >
+                <option value="leitura">leitura</option>
+                <option value="escrita">escrita</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="status">Status</label>
+              <select
+                id="status"
+                name="status"
+                value={accessForm.status}
+                onChange={handleAccessFormChange}
+              >
+                <option value="ativo">ativo</option>
+                <option value="pendente">pendente</option>
+                <option value="revogado">revogado</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={accessFormLoading}
+            >
+              {accessFormLoading ? "Cadastrando..." : "Cadastrar acesso"}
+            </button>
+          </div>
+
+          {accessFormMessage && <p className="form-message success">{accessFormMessage}</p>}
+          {accessFormError && <p className="form-message error">{accessFormError}</p>}
+        </form>
+      </section>
+
+      <section className="table-section">
+        <div className="section-heading">
+          <h2>Acessos cadastrados</h2>
+          <span>{accesses.length} registros</span>
+        </div>
+
+        <div className="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Usuário</th>
+                <th>Sistema</th>
+                <th>Nível</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accesses.length > 0 ? (
+                accesses.map((access) => (
+                  <tr key={access.id}>
+                    <td>{access.user?.name || `Usuário #${access.user_id}`}</td>
+                    <td>{access.system?.name || `Sistema #${access.system_id}`}</td>
+                    <td>
+                      <span className="role-badge">{access.access_level}</span>
+                    </td>
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          access.is_active ? "active" : "inactive"
+                        }`}
+                      >
+                        {access.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="empty-cell">
+                    Nenhum acesso encontrado.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" className="empty-cell">
-                  Nenhum acesso encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   );
+
+  if (!isAuthenticated) {
+    return (
+      <div className="login-screen">
+        <div className="background-glow background-glow-1" />
+        <div className="background-glow background-glow-2" />
+
+        <div className="login-card">
+          <span className="badge">Unified Access OS</span>
+          <h1>AccessVault</h1>
+          <p className="login-subtitle">
+            Entre com sua conta para acessar a plataforma.
+          </p>
+
+          <form className="login-form" onSubmit={handleLogin}>
+            <div className="form-field">
+              <label htmlFor="login-email">Email</label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                value={loginForm.email}
+                onChange={handleLoginFormChange}
+                placeholder="Digite seu email"
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="login-password">Senha</label>
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                value={loginForm.password}
+                onChange={handleLoginFormChange}
+                placeholder="Digite sua senha"
+                required
+              />
+            </div>
+
+            <button className="primary-button login-button" type="submit" disabled={loginLoading}>
+              {loginLoading ? "Entrando..." : "Entrar"}
+            </button>
+
+            {loginError && <p className="form-message error">{loginError}</p>}
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app shell">
@@ -653,45 +968,53 @@ function App() {
       <div className="background-glow background-glow-2" />
 
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <span className="badge">Access Management</span>
-          <h1>AccessVault</h1>
-          <p>Painel corporativo</p>
+        <div>
+          <div className="sidebar-brand">
+            <span className="badge">Access Management</span>
+            <h1>AccessVault</h1>
+            <p>Painel corporativo</p>
+          </div>
+
+          <div className="user-session-card">
+            <span className="user-session-role">{loggedUser?.role}</span>
+            <strong>{loggedUser?.name}</strong>
+            <small>{loggedUser?.email}</small>
+          </div>
+
+          <nav className="sidebar-nav">
+            <button
+              className={activeSection === "dashboard" ? "nav-item active" : "nav-item"}
+              onClick={() => setActiveSection("dashboard")}
+            >
+              <span>📊</span>
+              Dashboard
+            </button>
+
+            <button
+              className={activeSection === "users" ? "nav-item active" : "nav-item"}
+              onClick={() => setActiveSection("users")}
+            >
+              <span>👤</span>
+              Usuários
+            </button>
+
+            <button
+              className={activeSection === "systems" ? "nav-item active" : "nav-item"}
+              onClick={() => setActiveSection("systems")}
+            >
+              <span>🖥️</span>
+              Sistemas
+            </button>
+
+            <button
+              className={activeSection === "accesses" ? "nav-item active" : "nav-item"}
+              onClick={() => setActiveSection("accesses")}
+            >
+              <span>🔐</span>
+              Acessos
+            </button>
+          </nav>
         </div>
-
-        <nav className="sidebar-nav">
-          <button
-            className={activeSection === "dashboard" ? "nav-item active" : "nav-item"}
-            onClick={() => setActiveSection("dashboard")}
-          >
-            <span>📊</span>
-            Dashboard
-          </button>
-
-          <button
-            className={activeSection === "users" ? "nav-item active" : "nav-item"}
-            onClick={() => setActiveSection("users")}
-          >
-            <span>👤</span>
-            Usuários
-          </button>
-
-          <button
-            className={activeSection === "systems" ? "nav-item active" : "nav-item"}
-            onClick={() => setActiveSection("systems")}
-          >
-            <span>🖥️</span>
-            Sistemas
-          </button>
-
-          <button
-            className={activeSection === "accesses" ? "nav-item active" : "nav-item"}
-            onClick={() => setActiveSection("accesses")}
-          >
-            <span>🔐</span>
-            Acessos
-          </button>
-        </nav>
 
         <div className="sidebar-footer">
           <a
@@ -702,8 +1025,13 @@ function App() {
           >
             Ver API
           </a>
+
           <button className="primary-button sidebar-link" onClick={fetchAllData}>
             Atualizar dados
+          </button>
+
+          <button className="logout-button" onClick={handleLogout}>
+            Sair
           </button>
         </div>
       </aside>
@@ -711,18 +1039,8 @@ function App() {
       <div className="main-content">
         <header className="topbar topbar-main">
           <div>
-            <p className="page-label">
-              {activeSection === "dashboard" && "Dashboard geral"}
-              {activeSection === "users" && "Gestão de usuários"}
-              {activeSection === "systems" && "Gestão de sistemas"}
-              {activeSection === "accesses" && "Gestão de acessos"}
-            </p>
-            <h2 className="page-title">
-              {activeSection === "dashboard" && "Visão geral do ambiente"}
-              {activeSection === "users" && "Usuários"}
-              {activeSection === "systems" && "Sistemas"}
-              {activeSection === "accesses" && "Acessos"}
-            </h2>
+            <p className="page-label">{pageLabel}</p>
+            <h2 className="page-title">{pageTitle}</h2>
           </div>
 
           <div className="hero-card-right">
