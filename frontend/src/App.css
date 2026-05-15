@@ -550,6 +550,122 @@ tr:hover td {
   color: #8fa3c8;
 }
 
+/* NAVEGAÇÃO PREMIUM */
+
+.shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 28px;
+}
+
+.sidebar {
+  position: sticky;
+  top: 24px;
+  height: fit-content;
+  min-height: calc(100vh - 48px);
+  padding: 24px 20px;
+  border-radius: 28px;
+  background: rgba(18, 30, 56, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sidebar-brand h1 {
+  color: #55b7ff;
+  font-size: 2rem;
+  margin-bottom: 6px;
+}
+
+.sidebar-brand p {
+  color: #9fb2d6;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 10px;
+  margin: 26px 0;
+}
+
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #dce7fb;
+  border: 1px solid transparent;
+  transition: 0.2s ease;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: rgba(85, 183, 255, 0.08);
+  border-color: rgba(85, 183, 255, 0.18);
+}
+
+.nav-item.active {
+  background: linear-gradient(
+    135deg,
+    rgba(47, 129, 247, 0.2),
+    rgba(85, 183, 255, 0.14)
+  );
+  border-color: rgba(85, 183, 255, 0.24);
+  color: #ffffff;
+}
+
+.sidebar-footer {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.sidebar-link {
+  width: 100%;
+  text-align: center;
+}
+
+.main-content {
+  min-width: 0;
+}
+
+.topbar-main {
+  max-width: 100%;
+  margin-bottom: 24px;
+}
+
+.page-label {
+  color: #9fc2ff;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.page-title {
+  font-size: 2rem;
+  color: #eef4ff;
+}
+
+@media (max-width: 1100px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: relative;
+    top: 0;
+    height: auto;
+    min-height: auto;
+  }
+}
+
 @media (max-width: 980px) {
   .cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
