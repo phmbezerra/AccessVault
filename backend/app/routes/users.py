@@ -5,6 +5,7 @@ from app.core.security import hash_password
 from app.database.connection import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.core.deps import require_admin_or_gestor
 
 router = APIRouter()
 
@@ -37,7 +38,11 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=UserResponse)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_gestor),
+):
     existing_user = db.query(User).filter(User.email == user.email).first()
 
     if existing_user:

@@ -79,12 +79,14 @@ function App() {
 
     if (savedToken && savedUser) {
       try {
+        const parsedUser = JSON.parse(savedUser);
         setAuthToken(savedToken);
-        setLoggedUser(JSON.parse(savedUser));
+        setLoggedUser(parsedUser);
         setIsAuthenticated(true);
       } catch {
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         localStorage.removeItem(USER_STORAGE_KEY);
+        setLoading(false);
       }
     } else {
       setLoading(false);
@@ -96,6 +98,39 @@ function App() {
       fetchAllData();
     }
   }, [isAuthenticated]);
+
+  const role = loggedUser?.role ?? "";
+
+  const permissions = useMemo(() => {
+    const isAdmin = role === "admin";
+    const isGestor = role === "gestor";
+    const isColaborador = role === "colaborador";
+
+    return {
+      isAdmin,
+      isGestor,
+      isColaborador,
+      canViewDashboard: true,
+      canViewUsers: isAdmin || isGestor,
+      canViewSystems: isAdmin || isGestor,
+      canViewAccesses: true,
+      canCreateUsers: isAdmin || isGestor,
+      canCreateSystems: isAdmin || isGestor,
+      canCreateAccesses: isAdmin || isGestor,
+    };
+  }, [role]);
+
+  useEffect(() => {
+    if (activeSection === "users" && !permissions.canViewUsers) {
+      setActiveSection("dashboard");
+    }
+    if (activeSection === "systems" && !permissions.canViewSystems) {
+      setActiveSection("dashboard");
+    }
+    if (activeSection === "accesses" && !permissions.canViewAccesses) {
+      setActiveSection("dashboard");
+    }
+  }, [activeSection, permissions]);
 
   const fetchAllData = async () => {
     try {
@@ -235,6 +270,11 @@ function App() {
   const handleCreateUser = async (event) => {
     event.preventDefault();
 
+    if (!permissions.canCreateUsers) {
+      setUserFormError("Você não tem permissão para cadastrar usuários.");
+      return;
+    }
+
     try {
       setUserFormLoading(true);
       setUserFormMessage("");
@@ -244,6 +284,7 @@ function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: authToken ? `Bearer ${authToken}` : "",
         },
         body: JSON.stringify(userForm),
       });
@@ -278,6 +319,11 @@ function App() {
   const handleCreateSystem = async (event) => {
     event.preventDefault();
 
+    if (!permissions.canCreateSystems) {
+      setSystemFormError("Você não tem permissão para cadastrar sistemas.");
+      return;
+    }
+
     try {
       setSystemFormLoading(true);
       setSystemFormMessage("");
@@ -287,6 +333,7 @@ function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: authToken ? `Bearer ${authToken}` : "",
         },
         body: JSON.stringify(systemForm),
       });
@@ -320,6 +367,11 @@ function App() {
 
   const handleCreateAccess = async (event) => {
     event.preventDefault();
+
+    if (!permissions.canCreateAccesses) {
+      setAccessFormError("Você não tem permissão para cadastrar acessos.");
+      return;
+    }
 
     try {
       setAccessFormLoading(true);
@@ -492,15 +544,21 @@ function App() {
           </div>
 
           <div className="quick-actions">
-            <button className="nav-action-button" onClick={() => setActiveSection("users")}>
-              Ir para usuários
-            </button>
-            <button className="nav-action-button" onClick={() => setActiveSection("systems")}>
-              Ir para sistemas
-            </button>
-            <button className="nav-action-button" onClick={() => setActiveSection("accesses")}>
-              Ir para acessos
-            </button>
+            {permissions.canViewUsers && (
+              <button className="nav-action-button" onClick={() => setActiveSection("users")}>
+                Ir para usuários
+              </button>
+            )}
+            {permissions.canViewSystems && (
+              <button className="nav-action-button" onClick={() => setActiveSection("systems")}>
+                Ir para sistemas
+              </button>
+            )}
+            {permissions.canViewAccesses && (
+              <button className="nav-action-button" onClick={() => setActiveSection("accesses")}>
+                Ir para acessos
+              </button>
+            )}
             <a href={`${API_BASE}/docs`} target="_blank" rel="noreferrer">
               Abrir Swagger
             </a>
@@ -512,84 +570,86 @@ function App() {
 
   const renderUsers = () => (
     <>
-      <section className="form-section">
-        <div className="section-heading">
-          <h2>Cadastrar usuário</h2>
-          <span>Criação direta pela interface</span>
-        </div>
+      {permissions.canCreateUsers && (
+        <section className="form-section">
+          <div className="section-heading">
+            <h2>Cadastrar usuário</h2>
+            <span>Criação direta pela interface</span>
+          </div>
 
-        <form className="form-card" onSubmit={handleCreateUser}>
-          <div className="form-grid">
-            <div className="form-field">
-              <label htmlFor="name">Nome</label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                value={userForm.name}
-                onChange={handleUserFormChange}
-                placeholder="Digite o nome"
-                required
-              />
+          <form className="form-card" onSubmit={handleCreateUser}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="name">Nome</label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={userForm.name}
+                  onChange={handleUserFormChange}
+                  placeholder="Digite o nome"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={userForm.email}
+                  onChange={handleUserFormChange}
+                  placeholder="Digite o email"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="password">Senha</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={userForm.password}
+                  onChange={handleUserFormChange}
+                  placeholder="Mínimo de 6 caracteres"
+                  minLength={6}
+                  maxLength={72}
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="role">Perfil</label>
+                <select
+                  id="role"
+                  name="role"
+                  value={userForm.role}
+                  onChange={handleUserFormChange}
+                >
+                  <option value="colaborador">colaborador</option>
+                  <option value="gestor">gestor</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={userForm.email}
-                onChange={handleUserFormChange}
-                placeholder="Digite o email"
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="password">Senha</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={userForm.password}
-                onChange={handleUserFormChange}
-                placeholder="Mínimo de 6 caracteres"
-                minLength={6}
-                maxLength={72}
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="role">Perfil</label>
-              <select
-                id="role"
-                name="role"
-                value={userForm.role}
-                onChange={handleUserFormChange}
+            <div className="form-actions">
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={userFormLoading}
               >
-                <option value="colaborador">colaborador</option>
-                <option value="gestor">gestor</option>
-                <option value="admin">admin</option>
-              </select>
+                {userFormLoading ? "Cadastrando..." : "Cadastrar usuário"}
+              </button>
             </div>
-          </div>
 
-          <div className="form-actions">
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={userFormLoading}
-            >
-              {userFormLoading ? "Cadastrando..." : "Cadastrar usuário"}
-            </button>
-          </div>
-
-          {userFormMessage && <p className="form-message success">{userFormMessage}</p>}
-          {userFormError && <p className="form-message error">{userFormError}</p>}
-        </form>
-      </section>
+            {userFormMessage && <p className="form-message success">{userFormMessage}</p>}
+            {userFormError && <p className="form-message error">{userFormError}</p>}
+          </form>
+        </section>
+      )}
 
       <section className="table-section">
         <div className="section-heading">
@@ -643,83 +703,85 @@ function App() {
 
   const renderSystems = () => (
     <>
-      <section className="form-section">
-        <div className="section-heading">
-          <h2>Cadastrar sistema</h2>
-          <span>Gestão de sistemas corporativos</span>
-        </div>
+      {permissions.canCreateSystems && (
+        <section className="form-section">
+          <div className="section-heading">
+            <h2>Cadastrar sistema</h2>
+            <span>Gestão de sistemas corporativos</span>
+          </div>
 
-        <form className="form-card" onSubmit={handleCreateSystem}>
-          <div className="form-grid">
-            <div className="form-field">
-              <label htmlFor="system-name">Nome do sistema</label>
-              <input
-                id="system-name"
-                name="name"
-                type="text"
-                value={systemForm.name}
-                onChange={handleSystemFormChange}
-                placeholder="Ex.: Portal RH"
-                required
-              />
+          <form className="form-card" onSubmit={handleCreateSystem}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="system-name">Nome do sistema</label>
+                <input
+                  id="system-name"
+                  name="name"
+                  type="text"
+                  value={systemForm.name}
+                  onChange={handleSystemFormChange}
+                  placeholder="Ex.: Portal RH"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="owner_area">Área responsável</label>
+                <input
+                  id="owner_area"
+                  name="owner_area"
+                  type="text"
+                  value={systemForm.owner_area}
+                  onChange={handleSystemFormChange}
+                  placeholder="Ex.: Recursos Humanos"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="description">Descrição</label>
+                <input
+                  id="description"
+                  name="description"
+                  type="text"
+                  value={systemForm.description}
+                  onChange={handleSystemFormChange}
+                  placeholder="Descreva brevemente o sistema"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="criticality">Criticidade</label>
+                <select
+                  id="criticality"
+                  name="criticality"
+                  value={systemForm.criticality}
+                  onChange={handleSystemFormChange}
+                >
+                  <option value="baixa">baixa</option>
+                  <option value="media">media</option>
+                  <option value="alta">alta</option>
+                  <option value="critica">critica</option>
+                </select>
+              </div>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="owner_area">Área responsável</label>
-              <input
-                id="owner_area"
-                name="owner_area"
-                type="text"
-                value={systemForm.owner_area}
-                onChange={handleSystemFormChange}
-                placeholder="Ex.: Recursos Humanos"
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="description">Descrição</label>
-              <input
-                id="description"
-                name="description"
-                type="text"
-                value={systemForm.description}
-                onChange={handleSystemFormChange}
-                placeholder="Descreva brevemente o sistema"
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="criticality">Criticidade</label>
-              <select
-                id="criticality"
-                name="criticality"
-                value={systemForm.criticality}
-                onChange={handleSystemFormChange}
+            <div className="form-actions">
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={systemFormLoading}
               >
-                <option value="baixa">baixa</option>
-                <option value="media">media</option>
-                <option value="alta">alta</option>
-                <option value="critica">critica</option>
-              </select>
+                {systemFormLoading ? "Cadastrando..." : "Cadastrar sistema"}
+              </button>
             </div>
-          </div>
 
-          <div className="form-actions">
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={systemFormLoading}
-            >
-              {systemFormLoading ? "Cadastrando..." : "Cadastrar sistema"}
-            </button>
-          </div>
-
-          {systemFormMessage && <p className="form-message success">{systemFormMessage}</p>}
-          {systemFormError && <p className="form-message error">{systemFormError}</p>}
-        </form>
-      </section>
+            {systemFormMessage && <p className="form-message success">{systemFormMessage}</p>}
+            {systemFormError && <p className="form-message error">{systemFormError}</p>}
+          </form>
+        </section>
+      )}
 
       <section className="table-section">
         <div className="section-heading">
@@ -773,93 +835,95 @@ function App() {
 
   const renderAccesses = () => (
     <>
-      <section className="form-section">
-        <div className="section-heading">
-          <h2>Cadastrar acesso</h2>
-          <span>Relacionamento entre usuário e sistema</span>
-        </div>
-
-        <form className="form-card" onSubmit={handleCreateAccess}>
-          <div className="form-grid">
-            <div className="form-field">
-              <label htmlFor="user_id">Usuário</label>
-              <select
-                id="user_id"
-                name="user_id"
-                value={accessForm.user_id}
-                onChange={handleAccessFormChange}
-                required
-              >
-                <option value="">Selecione um usuário</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} - {user.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="system_id">Sistema</label>
-              <select
-                id="system_id"
-                name="system_id"
-                value={accessForm.system_id}
-                onChange={handleAccessFormChange}
-                required
-              >
-                <option value="">Selecione um sistema</option>
-                {systems.map((system) => (
-                  <option key={system.id} value={system.id}>
-                    {system.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="access_level">Nível de acesso</label>
-              <select
-                id="access_level"
-                name="access_level"
-                value={accessForm.access_level}
-                onChange={handleAccessFormChange}
-              >
-                <option value="leitura">leitura</option>
-                <option value="escrita">escrita</option>
-                <option value="admin">admin</option>
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="status">Status</label>
-              <select
-                id="status"
-                name="status"
-                value={accessForm.status}
-                onChange={handleAccessFormChange}
-              >
-                <option value="ativo">ativo</option>
-                <option value="pendente">pendente</option>
-                <option value="revogado">revogado</option>
-              </select>
-            </div>
+      {permissions.canCreateAccesses && (
+        <section className="form-section">
+          <div className="section-heading">
+            <h2>Cadastrar acesso</h2>
+            <span>Relacionamento entre usuário e sistema</span>
           </div>
 
-          <div className="form-actions">
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={accessFormLoading}
-            >
-              {accessFormLoading ? "Cadastrando..." : "Cadastrar acesso"}
-            </button>
-          </div>
+          <form className="form-card" onSubmit={handleCreateAccess}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="user_id">Usuário</label>
+                <select
+                  id="user_id"
+                  name="user_id"
+                  value={accessForm.user_id}
+                  onChange={handleAccessFormChange}
+                  required
+                >
+                  <option value="">Selecione um usuário</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} - {user.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {accessFormMessage && <p className="form-message success">{accessFormMessage}</p>}
-          {accessFormError && <p className="form-message error">{accessFormError}</p>}
-        </form>
-      </section>
+              <div className="form-field">
+                <label htmlFor="system_id">Sistema</label>
+                <select
+                  id="system_id"
+                  name="system_id"
+                  value={accessForm.system_id}
+                  onChange={handleAccessFormChange}
+                  required
+                >
+                  <option value="">Selecione um sistema</option>
+                  {systems.map((system) => (
+                    <option key={system.id} value={system.id}>
+                      {system.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="access_level">Nível de acesso</label>
+                <select
+                  id="access_level"
+                  name="access_level"
+                  value={accessForm.access_level}
+                  onChange={handleAccessFormChange}
+                >
+                  <option value="leitura">leitura</option>
+                  <option value="escrita">escrita</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="status">Status</label>
+                <select
+                  id="status"
+                  name="status"
+                  value={accessForm.status}
+                  onChange={handleAccessFormChange}
+                >
+                  <option value="ativo">ativo</option>
+                  <option value="pendente">pendente</option>
+                  <option value="revogado">revogado</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={accessFormLoading}
+              >
+                {accessFormLoading ? "Cadastrando..." : "Cadastrar acesso"}
+              </button>
+            </div>
+
+            {accessFormMessage && <p className="form-message success">{accessFormMessage}</p>}
+            {accessFormError && <p className="form-message error">{accessFormError}</p>}
+          </form>
+        </section>
+      )}
 
       <section className="table-section">
         <div className="section-heading">
@@ -990,29 +1054,35 @@ function App() {
               Dashboard
             </button>
 
-            <button
-              className={activeSection === "users" ? "nav-item active" : "nav-item"}
-              onClick={() => setActiveSection("users")}
-            >
-              <span>👤</span>
-              Usuários
-            </button>
+            {permissions.canViewUsers && (
+              <button
+                className={activeSection === "users" ? "nav-item active" : "nav-item"}
+                onClick={() => setActiveSection("users")}
+              >
+                <span>👤</span>
+                Usuários
+              </button>
+            )}
 
-            <button
-              className={activeSection === "systems" ? "nav-item active" : "nav-item"}
-              onClick={() => setActiveSection("systems")}
-            >
-              <span>🖥️</span>
-              Sistemas
-            </button>
+            {permissions.canViewSystems && (
+              <button
+                className={activeSection === "systems" ? "nav-item active" : "nav-item"}
+                onClick={() => setActiveSection("systems")}
+              >
+                <span>🖥️</span>
+                Sistemas
+              </button>
+            )}
 
-            <button
-              className={activeSection === "accesses" ? "nav-item active" : "nav-item"}
-              onClick={() => setActiveSection("accesses")}
-            >
-              <span>🔐</span>
-              Acessos
-            </button>
+            {permissions.canViewAccesses && (
+              <button
+                className={activeSection === "accesses" ? "nav-item active" : "nav-item"}
+                onClick={() => setActiveSection("accesses")}
+              >
+                <span>🔐</span>
+                Acessos
+              </button>
+            )}
           </nav>
         </div>
 
@@ -1062,9 +1132,9 @@ function App() {
 
         <main className="dashboard">
           {activeSection === "dashboard" && renderDashboard()}
-          {activeSection === "users" && renderUsers()}
-          {activeSection === "systems" && renderSystems()}
-          {activeSection === "accesses" && renderAccesses()}
+          {activeSection === "users" && permissions.canViewUsers && renderUsers()}
+          {activeSection === "systems" && permissions.canViewSystems && renderSystems()}
+          {activeSection === "accesses" && permissions.canViewAccesses && renderAccesses()}
         </main>
       </div>
     </div>

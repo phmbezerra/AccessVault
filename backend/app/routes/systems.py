@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.system import System
 from app.schemas.system import SystemCreate, SystemResponse, SystemUpdate
+from app.core.deps import require_admin_or_gestor
 
 router = APIRouter()
 
@@ -40,7 +41,11 @@ def get_system(system_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=SystemResponse)
-def create_system(data: SystemCreate, db: Session = Depends(get_db)):
+def create_system(
+    system: SystemCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_gestor),
+):
     existing_system = db.query(System).filter(System.name == data.name).first()
 
     if existing_system:

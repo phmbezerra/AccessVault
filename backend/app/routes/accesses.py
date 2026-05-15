@@ -6,6 +6,7 @@ from app.models.access import Access
 from app.models.system import System
 from app.models.user import User
 from app.schemas.access import AccessCreate, AccessResponse, AccessUpdate
+from app.core.deps import require_admin_or_gestor
 
 router = APIRouter()
 
@@ -50,7 +51,11 @@ def get_access(access_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=AccessResponse)
-def create_access(data: AccessCreate, db: Session = Depends(get_db)):
+def create_access(
+    access: AccessCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_gestor),
+):
     user = db.query(User).filter(User.id == data.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
