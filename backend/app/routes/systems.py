@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.audit import create_audit_log
 from app.core.deps import require_admin_or_gestor
 from app.database.connection import get_db
 from app.models.system import System
+from app.models.user import User
 from app.schemas.system import SystemCreate, SystemResponse, SystemUpdate
 
 router = APIRouter()
@@ -29,7 +31,7 @@ def get_system(system_id: int, db: Session = Depends(get_db)):
 def create_system(
     system: SystemCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_gestor),
+    current_user: User = Depends(require_admin_or_gestor),
 ):
     existing_system = db.query(System).filter(System.name == system.name).first()
 
@@ -47,6 +49,17 @@ def create_system(
     db.add(new_system)
     db.commit()
     db.refresh(new_system)
+
+    create_audit_log(
+        db=db,
+        action="create_system",
+        entity_type="system",
+        entity_id=new_system.id,
+        entity_name=new_system.name,
+        details=f"Sistema criado para a área {new_system.owner_area}.",
+        actor=current_user,
+    )
+
     return new_system
 
 
@@ -55,7 +68,7 @@ def update_system(
     system_id: int,
     system_data: SystemUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_gestor),
+    current_user: User = Depends(require_admin_or_gestor),
 ):
     system = db.query(System).filter(System.id == system_id).first()
 
@@ -78,6 +91,17 @@ def update_system(
 
     db.commit()
     db.refresh(system)
+
+    create_audit_log(
+        db=db,
+        action="update_system",
+        entity_type="system",
+        entity_id=system.id,
+        entity_name=system.name,
+        details=f"Sistema atualizado para a área {system.owner_area}.",
+        actor=current_user,
+    )
+
     return system
 
 
@@ -85,7 +109,7 @@ def update_system(
 def deactivate_system(
     system_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_gestor),
+    current_user: User = Depends(require_admin_or_gestor),
 ):
     system = db.query(System).filter(System.id == system_id).first()
 
@@ -96,4 +120,15 @@ def deactivate_system(
 
     db.commit()
     db.refresh(system)
+
+    create_audit_log(
+        db=db,
+        action="deactivate_system",
+        entity_type="system",
+        entity_id=system.id,
+        entity_name=system.name,
+        details="Sistema desativado.",
+        actor=current_user,
+    )
+
     return system

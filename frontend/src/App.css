@@ -894,3 +894,56 @@ tr:hover td {
     padding: 16px;
   }
 }
+
+.form-field-full {
+  grid-column: 1 / -1;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-action {
+  border: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.table-action.approve {
+  background: rgba(34, 197, 94, 0.14);
+  color: #90f2b5;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.table-action.approve:hover {
+  background: rgba(34, 197, 94, 0.22);
+}
+
+.table-action.reject {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ffaaaa;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.table-action.reject:hover {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.table-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.muted-text {
+  color: #8fa3c8;
+}
+
+.status-badge.pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #ffd37a;
+}

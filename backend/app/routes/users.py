@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.audit import create_audit_log
 from app.core.deps import get_current_user_optional, require_admin_or_gestor
 from app.core.security import hash_password
 from app.database.connection import get_db
@@ -59,6 +60,17 @@ def create_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    create_audit_log(
+        db=db,
+        action="create_user",
+        entity_type="user",
+        entity_id=new_user.id,
+        entity_name=new_user.name,
+        details=f"Usuário criado com perfil {new_user.role}.",
+        actor=current_user,
+    )
+
     return new_user
 
 
@@ -89,6 +101,17 @@ def update_user(
 
     db.commit()
     db.refresh(user)
+
+    create_audit_log(
+        db=db,
+        action="update_user",
+        entity_type="user",
+        entity_id=user.id,
+        entity_name=user.name,
+        details=f"Usuário atualizado para perfil {user.role}.",
+        actor=current_user,
+    )
+
     return user
 
 
@@ -107,4 +130,15 @@ def deactivate_user(
 
     db.commit()
     db.refresh(user)
+
+    create_audit_log(
+        db=db,
+        action="deactivate_user",
+        entity_type="user",
+        entity_id=user.id,
+        entity_name=user.name,
+        details="Usuário desativado.",
+        actor=current_user,
+    )
+
     return user

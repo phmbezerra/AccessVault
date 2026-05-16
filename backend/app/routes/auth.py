@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.audit import create_audit_log
 from app.core.security import create_access_token, verify_password
 from app.database.connection import get_db
 from app.models.user import User
@@ -29,6 +30,16 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             "role": user.role,
             "name": user.name,
         }
+    )
+
+    create_audit_log(
+        db=db,
+        action="login",
+        entity_type="auth",
+        entity_id=user.id,
+        entity_name=user.name,
+        details="Login realizado com sucesso.",
+        actor=user,
     )
 
     return TokenResponse(

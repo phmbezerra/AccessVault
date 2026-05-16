@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.audit import create_audit_log
 from app.core.deps import get_current_user, require_admin_or_gestor
 from app.database.connection import get_db
 from app.models.access import Access
@@ -54,6 +55,17 @@ def create_request(
     db.add(request)
     db.commit()
     db.refresh(request)
+
+    create_audit_log(
+        db=db,
+        action="create_request",
+        entity_type="request",
+        entity_id=request.id,
+        entity_name=f"request:{request.id}",
+        details=f"Solicitação criada para user {request.target_user_id} no sistema {request.system_id}.",
+        actor=current_user,
+    )
+
     return request
 
 
@@ -103,4 +115,15 @@ def review_request(
 
     db.commit()
     db.refresh(request)
+
+    create_audit_log(
+        db=db,
+        action="review_request",
+        entity_type="request",
+        entity_id=request.id,
+        entity_name=f"request:{request.id}",
+        details=f"Solicitação marcada como {request.status}. Nota: {request.reviewer_note or 'sem nota'}",
+        actor=current_user,
+    )
+
     return request

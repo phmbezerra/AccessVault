@@ -7,8 +7,8 @@ from app.models.user import User
 from app.models.system import System
 from app.models.access import Access
 from app.models.request import AccessRequest
-from app.routes import users, auth, systems, accesses, dashboard
-from app.routes import requests
+from app.models.audit_log import AuditLog
+from app.routes import users, auth, systems, accesses, dashboard, requests, audit_logs
 
 app = FastAPI(title="AccessVault")
 
@@ -28,6 +28,7 @@ app.include_router(systems.router, prefix="/systems", tags=["Systems"])
 app.include_router(accesses.router, prefix="/accesses", tags=["Accesses"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 app.include_router(requests.router, prefix="/requests", tags=["Requests"])
+app.include_router(audit_logs.router, prefix="/audit-logs", tags=["Audit Logs"])
 
 
 @app.get("/")

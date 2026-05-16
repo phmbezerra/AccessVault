@@ -24,6 +24,7 @@ function App() {
   const [users, setUsers] = useState([]);
   const [systems, setSystems] = useState([]);
   const [accesses, setAccesses] = useState([]);
+  const [requests, setRequests] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState("");
@@ -46,7 +47,6 @@ function App() {
     password: "",
     role: "colaborador",
   });
-
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [userFormMessage, setUserFormMessage] = useState("");
   const [userFormError, setUserFormError] = useState("");
@@ -57,7 +57,6 @@ function App() {
     owner_area: "",
     criticality: "media",
   });
-
   const [systemFormLoading, setSystemFormLoading] = useState(false);
   const [systemFormMessage, setSystemFormMessage] = useState("");
   const [systemFormError, setSystemFormError] = useState("");
@@ -68,10 +67,21 @@ function App() {
     access_level: "leitura",
     status: "ativo",
   });
-
   const [accessFormLoading, setAccessFormLoading] = useState(false);
   const [accessFormMessage, setAccessFormMessage] = useState("");
   const [accessFormError, setAccessFormError] = useState("");
+
+  const [requestForm, setRequestForm] = useState({
+    target_user_id: "",
+    system_id: "",
+    access_level: "leitura",
+    justification: "",
+  });
+  const [requestFormLoading, setRequestFormLoading] = useState(false);
+  const [requestFormMessage, setRequestFormMessage] = useState("");
+  const [requestFormError, setRequestFormError] = useState("");
+
+  const [reviewLoadingId, setReviewLoadingId] = useState(null);
 
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -117,6 +127,8 @@ function App() {
       canCreateUsers: isAdmin || isGestor,
       canCreateSystems: isAdmin || isGestor,
       canCreateAccesses: isAdmin || isGestor,
+      canCreateRequests: true,
+      canReviewRequests: isAdmin || isGestor,
     };
   }, [role]);
 
@@ -132,33 +144,57 @@ function App() {
     }
   }, [activeSection, permissions]);
 
+  const authHeaders = useMemo(() => {
+    return authToken
+      ? {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        }
+      : {
+          "Content-Type": "application/json",
+        };
+  }, [authToken]);
+
   const fetchAllData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [summaryRes, usersRes, systemsRes, accessesRes] = await Promise.all([
-        fetch(`${API_BASE}/dashboard/summary`),
-        fetch(`${API_BASE}/users/`),
-        fetch(`${API_BASE}/systems/`),
-        fetch(`${API_BASE}/accesses/`),
-      ]);
+      const [summaryRes, usersRes, systemsRes, accessesRes, requestsRes] =
+        await Promise.all([
+          fetch(`${API_BASE}/dashboard/summary`),
+          fetch(`${API_BASE}/users/`),
+          fetch(`${API_BASE}/systems/`),
+          fetch(`${API_BASE}/accesses/`),
+          fetch(`${API_BASE}/requests/`, {
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+          }),
+        ]);
 
-      if (!summaryRes.ok || !usersRes.ok || !systemsRes.ok || !accessesRes.ok) {
+      if (
+        !summaryRes.ok ||
+        !usersRes.ok ||
+        !systemsRes.ok ||
+        !accessesRes.ok ||
+        !requestsRes.ok
+      ) {
         throw new Error("Falha ao carregar os dados da aplicação.");
       }
 
-      const [summaryData, usersData, systemsData, accessesData] = await Promise.all([
-        summaryRes.json(),
-        usersRes.json(),
-        systemsRes.json(),
-        accessesRes.json(),
-      ]);
+      const [summaryData, usersData, systemsData, accessesData, requestsData] =
+        await Promise.all([
+          summaryRes.json(),
+          usersRes.json(),
+          systemsRes.json(),
+          accessesRes.json(),
+          requestsRes.json(),
+        ]);
 
       setSummary(summaryData);
       setUsers(usersData);
       setSystems(systemsData);
       setAccesses(accessesData);
+      setRequests(requestsData);
       setLastUpdate(new Date().toLocaleString("pt-BR"));
     } catch (err) {
       setError(err.message || "Erro inesperado ao carregar a dashboard.");
@@ -238,6 +274,7 @@ function App() {
     setUsers([]);
     setSystems([]);
     setAccesses([]);
+    setRequests([]);
     setError("");
     setLastUpdate("");
     setLoading(false);
@@ -267,6 +304,14 @@ function App() {
     }));
   };
 
+  const handleRequestFormChange = (event) => {
+    const { name, value } = event.target;
+    setRequestForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const handleCreateUser = async (event) => {
     event.preventDefault();
 
@@ -282,22 +327,14 @@ function App() {
 
       const response = await fetch(`${API_BASE}/users/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authToken ? `Bearer ${authToken}` : "",
-        },
+        headers: authHeaders,
         body: JSON.stringify(userForm),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível cadastrar o usuário.";
-
-        throw new Error(
-          typeof apiMessage === "string"
-            ? apiMessage
-            : "Não foi possível cadastrar o usuário."
-        );
+        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível cadastrar o usuário.");
       }
 
       setUserForm({
@@ -331,22 +368,14 @@ function App() {
 
       const response = await fetch(`${API_BASE}/systems/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authToken ? `Bearer ${authToken}` : "",
-        },
+        headers: authHeaders,
         body: JSON.stringify(systemForm),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível cadastrar o sistema.";
-
-        throw new Error(
-          typeof apiMessage === "string"
-            ? apiMessage
-            : "Não foi possível cadastrar o sistema."
-        );
+        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível cadastrar o sistema.");
       }
 
       setSystemForm({
@@ -387,22 +416,14 @@ function App() {
 
       const response = await fetch(`${API_BASE}/accesses/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authToken ? `Bearer ${authToken}` : "",
-        },
+        headers: authHeaders,
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível cadastrar o acesso.";
-
-        throw new Error(
-          typeof apiMessage === "string"
-            ? apiMessage
-            : "Não foi possível cadastrar o acesso."
-        );
+        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível cadastrar o acesso.");
       }
 
       setAccessForm({
@@ -418,6 +439,84 @@ function App() {
       setAccessFormError(err.message || "Erro ao cadastrar acesso.");
     } finally {
       setAccessFormLoading(false);
+    }
+  };
+
+  const handleCreateRequest = async (event) => {
+    event.preventDefault();
+
+    if (!permissions.canCreateRequests) {
+      setRequestFormError("Você não tem permissão para solicitar acessos.");
+      return;
+    }
+
+    try {
+      setRequestFormLoading(true);
+      setRequestFormMessage("");
+      setRequestFormError("");
+
+      const payload = {
+        target_user_id: Number(requestForm.target_user_id),
+        system_id: Number(requestForm.system_id),
+        access_level: requestForm.access_level,
+        justification: requestForm.justification,
+      };
+
+      const response = await fetch(`${API_BASE}/requests/`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const apiMessage = errorData?.detail || "Não foi possível criar a solicitação.";
+        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível criar a solicitação.");
+      }
+
+      setRequestForm({
+        target_user_id: "",
+        system_id: "",
+        access_level: "leitura",
+        justification: "",
+      });
+
+      setRequestFormMessage("Solicitação criada com sucesso.");
+      await fetchAllData();
+    } catch (err) {
+      setRequestFormError(err.message || "Erro ao criar solicitação.");
+    } finally {
+      setRequestFormLoading(false);
+    }
+  };
+
+  const handleReviewRequest = async (requestId, status) => {
+    try {
+      setReviewLoadingId(requestId);
+
+      const response = await fetch(`${API_BASE}/requests/${requestId}/review`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: JSON.stringify({
+          status,
+          reviewer_note:
+            status === "aprovado"
+              ? "Solicitação aprovada pela interface."
+              : "Solicitação rejeitada pela interface.",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const apiMessage = errorData?.detail || "Não foi possível revisar a solicitação.";
+        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível revisar a solicitação.");
+      }
+
+      await fetchAllData();
+    } catch (err) {
+      setError(err.message || "Erro ao revisar solicitação.");
+    } finally {
+      setReviewLoadingId(null);
     }
   };
 
@@ -484,6 +583,16 @@ function App() {
     if (activeSection === "systems") return "Gestão de sistemas";
     return "Gestão de acessos";
   }, [activeSection]);
+
+  const getUserName = (id) => {
+    const user = users.find((item) => item.id === id);
+    return user ? user.name : `Usuário #${id}`;
+  };
+
+  const getSystemName = (id) => {
+    const system = systems.find((item) => item.id === id);
+    return system ? system.name : `Sistema #${id}`;
+  };
 
   const renderDashboard = () => (
     <>
@@ -636,11 +745,7 @@ function App() {
             </div>
 
             <div className="form-actions">
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={userFormLoading}
-              >
+              <button className="primary-button" type="submit" disabled={userFormLoading}>
                 {userFormLoading ? "Cadastrando..." : "Cadastrar usuário"}
               </button>
             </div>
@@ -677,11 +782,7 @@ function App() {
                       <span className="role-badge">{user.role}</span>
                     </td>
                     <td>
-                      <span
-                        className={`status-badge ${
-                          user.is_active ? "active" : "inactive"
-                        }`}
-                      >
+                      <span className={`status-badge ${user.is_active ? "active" : "inactive"}`}>
                         {user.is_active ? "Ativo" : "Inativo"}
                       </span>
                     </td>
@@ -768,11 +869,7 @@ function App() {
             </div>
 
             <div className="form-actions">
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={systemFormLoading}
-              >
+              <button className="primary-button" type="submit" disabled={systemFormLoading}>
                 {systemFormLoading ? "Cadastrando..." : "Cadastrar sistema"}
               </button>
             </div>
@@ -809,11 +906,7 @@ function App() {
                       <span className="role-badge">{system.criticality}</span>
                     </td>
                     <td>
-                      <span
-                        className={`status-badge ${
-                          system.is_active ? "active" : "inactive"
-                        }`}
-                      >
+                      <span className={`status-badge ${system.is_active ? "active" : "inactive"}`}>
                         {system.is_active ? "Ativo" : "Inativo"}
                       </span>
                     </td>
@@ -835,10 +928,95 @@ function App() {
 
   const renderAccesses = () => (
     <>
+      {permissions.canCreateRequests && (
+        <section className="form-section">
+          <div className="section-heading">
+            <h2>Solicitar acesso</h2>
+            <span>Fluxo de solicitação e aprovação</span>
+          </div>
+
+          <form className="form-card" onSubmit={handleCreateRequest}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="target_user_id">Usuário de destino</label>
+                <select
+                  id="target_user_id"
+                  name="target_user_id"
+                  value={requestForm.target_user_id}
+                  onChange={handleRequestFormChange}
+                  required
+                >
+                  <option value="">Selecione um usuário</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} - {user.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="request_system_id">Sistema</label>
+                <select
+                  id="request_system_id"
+                  name="system_id"
+                  value={requestForm.system_id}
+                  onChange={handleRequestFormChange}
+                  required
+                >
+                  <option value="">Selecione um sistema</option>
+                  {systems.map((system) => (
+                    <option key={system.id} value={system.id}>
+                      {system.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="request_access_level">Nível de acesso</label>
+                <select
+                  id="request_access_level"
+                  name="access_level"
+                  value={requestForm.access_level}
+                  onChange={handleRequestFormChange}
+                >
+                  <option value="leitura">leitura</option>
+                  <option value="escrita">escrita</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+
+              <div className="form-field form-field-full">
+                <label htmlFor="justification">Justificativa</label>
+                <input
+                  id="justification"
+                  name="justification"
+                  type="text"
+                  value={requestForm.justification}
+                  onChange={handleRequestFormChange}
+                  placeholder="Explique por que esse acesso é necessário"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="primary-button" type="submit" disabled={requestFormLoading}>
+                {requestFormLoading ? "Solicitando..." : "Criar solicitação"}
+              </button>
+            </div>
+
+            {requestFormMessage && <p className="form-message success">{requestFormMessage}</p>}
+            {requestFormError && <p className="form-message error">{requestFormError}</p>}
+          </form>
+        </section>
+      )}
+
       {permissions.canCreateAccesses && (
         <section className="form-section">
           <div className="section-heading">
-            <h2>Cadastrar acesso</h2>
+            <h2>Cadastrar acesso direto</h2>
             <span>Relacionamento entre usuário e sistema</span>
           </div>
 
@@ -910,11 +1088,7 @@ function App() {
             </div>
 
             <div className="form-actions">
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={accessFormLoading}
-              >
+              <button className="primary-button" type="submit" disabled={accessFormLoading}>
                 {accessFormLoading ? "Cadastrando..." : "Cadastrar acesso"}
               </button>
             </div>
@@ -924,6 +1098,85 @@ function App() {
           </form>
         </section>
       )}
+
+      <section className="table-section">
+        <div className="section-heading">
+          <h2>Solicitações de acesso</h2>
+          <span>{requests.length} registros</span>
+        </div>
+
+        <div className="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Solicitante</th>
+                <th>Destino</th>
+                <th>Sistema</th>
+                <th>Nível</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.length > 0 ? (
+                requests.map((request) => (
+                  <tr key={request.id}>
+                    <td>{request.id}</td>
+                    <td>{getUserName(request.requester_id)}</td>
+                    <td>{getUserName(request.target_user_id)}</td>
+                    <td>{getSystemName(request.system_id)}</td>
+                    <td>
+                      <span className="role-badge">{request.access_level}</span>
+                    </td>
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          request.status === "aprovado"
+                            ? "active"
+                            : request.status === "rejeitado"
+                            ? "inactive"
+                            : "pending"
+                        }`}
+                      >
+                        {request.status}
+                      </span>
+                    </td>
+                    <td>
+                      {request.status === "pendente" && permissions.canReviewRequests ? (
+                        <div className="inline-actions">
+                          <button
+                            className="table-action approve"
+                            onClick={() => handleReviewRequest(request.id, "aprovado")}
+                            disabled={reviewLoadingId === request.id}
+                          >
+                            Aprovar
+                          </button>
+                          <button
+                            className="table-action reject"
+                            onClick={() => handleReviewRequest(request.id, "rejeitado")}
+                            disabled={reviewLoadingId === request.id}
+                          >
+                            Rejeitar
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="muted-text">Sem ação</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="empty-cell">
+                    Nenhuma solicitação encontrada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="table-section">
         <div className="section-heading">
@@ -945,17 +1198,13 @@ function App() {
               {accesses.length > 0 ? (
                 accesses.map((access) => (
                   <tr key={access.id}>
-                    <td>{access.user?.name || `Usuário #${access.user_id}`}</td>
-                    <td>{access.system?.name || `Sistema #${access.system_id}`}</td>
+                    <td>{access.user?.name || getUserName(access.user_id)}</td>
+                    <td>{access.system?.name || getSystemName(access.system_id)}</td>
                     <td>
                       <span className="role-badge">{access.access_level}</span>
                     </td>
                     <td>
-                      <span
-                        className={`status-badge ${
-                          access.is_active ? "active" : "inactive"
-                        }`}
-                      >
+                      <span className={`status-badge ${access.is_active ? "active" : "inactive"}`}>
                         {access.status}
                       </span>
                     </td>
