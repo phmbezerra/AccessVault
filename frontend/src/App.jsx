@@ -25,6 +25,7 @@ function App() {
   const [systems, setSystems] = useState([]);
   const [accesses, setAccesses] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState("");
@@ -124,6 +125,7 @@ function App() {
       canViewUsers: isAdmin || isGestor,
       canViewSystems: isAdmin || isGestor,
       canViewAccesses: true,
+      canViewAudit: isAdmin || isGestor,
       canCreateUsers: isAdmin || isGestor,
       canCreateSystems: isAdmin || isGestor,
       canCreateAccesses: isAdmin || isGestor,
@@ -140,6 +142,9 @@ function App() {
       setActiveSection("dashboard");
     }
     if (activeSection === "accesses" && !permissions.canViewAccesses) {
+      setActiveSection("dashboard");
+    }
+    if (activeSection === "audit" && !permissions.canViewAudit) {
       setActiveSection("dashboard");
     }
   }, [activeSection, permissions]);
@@ -160,41 +165,45 @@ function App() {
       setLoading(true);
       setError("");
 
-      const [summaryRes, usersRes, systemsRes, accessesRes, requestsRes] =
-        await Promise.all([
-          fetch(`${API_BASE}/dashboard/summary`),
-          fetch(`${API_BASE}/users/`),
-          fetch(`${API_BASE}/systems/`),
-          fetch(`${API_BASE}/accesses/`),
-          fetch(`${API_BASE}/requests/`, {
-            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-          }),
-        ]);
+      const protectedHeaders = authToken
+        ? { Authorization: `Bearer ${authToken}` }
+        : {};
 
-      if (
-        !summaryRes.ok ||
-        !usersRes.ok ||
-        !systemsRes.ok ||
-        !accessesRes.ok ||
-        !requestsRes.ok
-      ) {
+      const endpointPromises = [
+        fetch(`${API_BASE}/dashboard/summary`),
+        fetch(`${API_BASE}/users/`),
+        fetch(`${API_BASE}/systems/`),
+        fetch(`${API_BASE}/accesses/`),
+        fetch(`${API_BASE}/requests/`, {
+          headers: protectedHeaders,
+        }),
+      ];
+
+      if (permissions.canViewAudit) {
+        endpointPromises.push(
+          fetch(`${API_BASE}/audit-logs/`, {
+            headers: protectedHeaders,
+          })
+        );
+      }
+
+      const responses = await Promise.all(endpointPromises);
+
+      if (responses.some((response) => !response.ok)) {
         throw new Error("Falha ao carregar os dados da aplicação.");
       }
 
-      const [summaryData, usersData, systemsData, accessesData, requestsData] =
-        await Promise.all([
-          summaryRes.json(),
-          usersRes.json(),
-          systemsRes.json(),
-          accessesRes.json(),
-          requestsRes.json(),
-        ]);
+      const parsed = await Promise.all(responses.map((response) => response.json()));
+
+      const [summaryData, usersData, systemsData, accessesData, requestsData, auditData] =
+        parsed;
 
       setSummary(summaryData);
       setUsers(usersData);
       setSystems(systemsData);
       setAccesses(accessesData);
       setRequests(requestsData);
+      setAuditLogs(auditData || []);
       setLastUpdate(new Date().toLocaleString("pt-BR"));
     } catch (err) {
       setError(err.message || "Erro inesperado ao carregar a dashboard.");
@@ -229,7 +238,6 @@ function App() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível fazer login.";
-
         throw new Error(
           typeof apiMessage === "string"
             ? apiMessage
@@ -275,6 +283,7 @@ function App() {
     setSystems([]);
     setAccesses([]);
     setRequests([]);
+    setAuditLogs([]);
     setError("");
     setLastUpdate("");
     setLoading(false);
@@ -334,7 +343,11 @@ function App() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível cadastrar o usuário.";
-        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível cadastrar o usuário.");
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível cadastrar o usuário."
+        );
       }
 
       setUserForm({
@@ -375,7 +388,11 @@ function App() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível cadastrar o sistema.";
-        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível cadastrar o sistema.");
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível cadastrar o sistema."
+        );
       }
 
       setSystemForm({
@@ -423,7 +440,11 @@ function App() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível cadastrar o acesso.";
-        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível cadastrar o acesso.");
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível cadastrar o acesso."
+        );
       }
 
       setAccessForm({
@@ -471,7 +492,11 @@ function App() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível criar a solicitação.";
-        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível criar a solicitação.");
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível criar a solicitação."
+        );
       }
 
       setRequestForm({
@@ -509,7 +534,11 @@ function App() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         const apiMessage = errorData?.detail || "Não foi possível revisar a solicitação.";
-        throw new Error(typeof apiMessage === "string" ? apiMessage : "Não foi possível revisar a solicitação.");
+        throw new Error(
+          typeof apiMessage === "string"
+            ? apiMessage
+            : "Não foi possível revisar a solicitação."
+        );
       }
 
       await fetchAllData();
@@ -518,6 +547,37 @@ function App() {
     } finally {
       setReviewLoadingId(null);
     }
+  };
+
+  const pageTitle = useMemo(() => {
+    if (activeSection === "dashboard") return "Visão geral do ambiente";
+    if (activeSection === "users") return "Usuários";
+    if (activeSection === "systems") return "Sistemas";
+    if (activeSection === "audit") return "Auditoria";
+    return "Acessos";
+  }, [activeSection]);
+
+  const pageLabel = useMemo(() => {
+    if (activeSection === "dashboard") return "Dashboard geral";
+    if (activeSection === "users") return "Gestão de usuários";
+    if (activeSection === "systems") return "Gestão de sistemas";
+    if (activeSection === "audit") return "Rastreabilidade e compliance";
+    return "Gestão de acessos";
+  }, [activeSection]);
+
+  const getUserName = (id) => {
+    const user = users.find((item) => item.id === id);
+    return user ? user.name : `Usuário #${id}`;
+  };
+
+  const getSystemName = (id) => {
+    const system = systems.find((item) => item.id === id);
+    return system ? system.name : `Sistema #${id}`;
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return "-";
+    return new Date(value).toLocaleString("pt-BR");
   };
 
   const mainCards = [
@@ -569,30 +629,6 @@ function App() {
       tone: "neutral",
     },
   ];
-
-  const pageTitle = useMemo(() => {
-    if (activeSection === "dashboard") return "Visão geral do ambiente";
-    if (activeSection === "users") return "Usuários";
-    if (activeSection === "systems") return "Sistemas";
-    return "Acessos";
-  }, [activeSection]);
-
-  const pageLabel = useMemo(() => {
-    if (activeSection === "dashboard") return "Dashboard geral";
-    if (activeSection === "users") return "Gestão de usuários";
-    if (activeSection === "systems") return "Gestão de sistemas";
-    return "Gestão de acessos";
-  }, [activeSection]);
-
-  const getUserName = (id) => {
-    const user = users.find((item) => item.id === id);
-    return user ? user.name : `Usuário #${id}`;
-  };
-
-  const getSystemName = (id) => {
-    const system = systems.find((item) => item.id === id);
-    return system ? system.name : `Sistema #${id}`;
-  };
 
   const renderDashboard = () => (
     <>
@@ -654,20 +690,41 @@ function App() {
 
           <div className="quick-actions">
             {permissions.canViewUsers && (
-              <button className="nav-action-button" onClick={() => setActiveSection("users")}>
+              <button
+                className="nav-action-button"
+                onClick={() => setActiveSection("users")}
+              >
                 Ir para usuários
               </button>
             )}
+
             {permissions.canViewSystems && (
-              <button className="nav-action-button" onClick={() => setActiveSection("systems")}>
+              <button
+                className="nav-action-button"
+                onClick={() => setActiveSection("systems")}
+              >
                 Ir para sistemas
               </button>
             )}
+
             {permissions.canViewAccesses && (
-              <button className="nav-action-button" onClick={() => setActiveSection("accesses")}>
+              <button
+                className="nav-action-button"
+                onClick={() => setActiveSection("accesses")}
+              >
                 Ir para acessos
               </button>
             )}
+
+            {permissions.canViewAudit && (
+              <button
+                className="nav-action-button"
+                onClick={() => setActiveSection("audit")}
+              >
+                Ver auditoria
+              </button>
+            )}
+
             <a href={`${API_BASE}/docs`} target="_blank" rel="noreferrer">
               Abrir Swagger
             </a>
@@ -1224,6 +1281,54 @@ function App() {
     </>
   );
 
+  const renderAudit = () => (
+    <section className="table-section">
+      <div className="section-heading">
+        <h2>Logs de auditoria</h2>
+        <span>{auditLogs.length} registros</span>
+      </div>
+
+      <div className="table-card audit-table">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Ação</th>
+              <th>Ator</th>
+              <th>Tipo</th>
+              <th>Entidade</th>
+              <th>Detalhes</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auditLogs.length > 0 ? (
+              auditLogs.map((log) => (
+                <tr key={log.id}>
+                  <td>{log.id}</td>
+                  <td>
+                    <span className="audit-action-badge">{log.action}</span>
+                  </td>
+                  <td className="audit-email">{log.actor_email || "-"}</td>
+                  <td className="audit-type">{log.entity_type}</td>
+                  <td className="audit-entity">{log.entity_name || "-"}</td>
+                  <td className="audit-details">{log.details || "-"}</td>
+                  <td className="audit-date">{formatDateTime(log.created_at)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="empty-cell">
+                  Nenhum log encontrado.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
   if (!isAuthenticated) {
     return (
       <div className="login-screen">
@@ -1281,7 +1386,7 @@ function App() {
       <div className="background-glow background-glow-2" />
 
       <aside className="sidebar">
-        <div>
+        <div className="sidebar-top">
           <div className="sidebar-brand">
             <span className="badge">Access Management</span>
             <h1>AccessVault</h1>
@@ -1330,6 +1435,16 @@ function App() {
               >
                 <span>🔐</span>
                 Acessos
+              </button>
+            )}
+
+            {permissions.canViewAudit && (
+              <button
+                className={activeSection === "audit" ? "nav-item active" : "nav-item"}
+                onClick={() => setActiveSection("audit")}
+              >
+                <span>🧾</span>
+                Auditoria
               </button>
             )}
           </nav>
@@ -1384,6 +1499,7 @@ function App() {
           {activeSection === "users" && permissions.canViewUsers && renderUsers()}
           {activeSection === "systems" && permissions.canViewSystems && renderSystems()}
           {activeSection === "accesses" && permissions.canViewAccesses && renderAccesses()}
+          {activeSection === "audit" && permissions.canViewAudit && renderAudit()}
         </main>
       </div>
     </div>
