@@ -1,5 +1,4 @@
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.connection import Base
@@ -22,7 +21,3 @@ class AccessRequest(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
-
-    requester = relationship("User", foreign_keys=[requester_id])
-    target_user = relationship("User", foreign_keys=[target_user_id])
-    system = relationship("System")

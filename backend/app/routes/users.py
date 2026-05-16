@@ -1,30 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.deps import get_current_user_optional, require_admin_or_gestor
 from app.core.security import hash_password
 from app.database.connection import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
-from app.core.deps import require_admin_or_gestor
 
 router = APIRouter()
 
 
 @router.get("/", response_model=list[UserResponse])
-def list_users(
-    is_active: bool | None = None,
-    role: str | None = None,
-    db: Session = Depends(get_db)
-):
-    query = db.query(User)
-
-    if is_active is not None:
-        query = query.filter(User.is_active == is_active)
-
-    if role is not None:
-        query = query.filter(User.role == role)
-
-    return query.all()
+def list_users(db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.id.desc()).all()
+    return users
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -41,10 +30,21 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 def create_user(
     user: UserCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_gestor),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
-    existing_user = db.query(User).filter(User.email == user.email).first()
+    total_users = db.query(User).count()
 
+    if total_users > 0:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Não autenticado.")
+
+        if current_user.role not in ["admin", "gestor"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Você não tem permissão para executar esta ação.",
+            )
+
+    existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email já cadastrado.")
 
@@ -53,17 +53,22 @@ def create_user(
         email=user.email,
         password_hash=hash_password(user.password),
         role=user.role,
+        is_active=True,
     )
 
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-
     return new_user
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_gestor),
+):
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
@@ -71,26 +76,28 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
 
     existing_email = (
         db.query(User)
-        .filter(User.email == data.email, User.id != user_id)
+        .filter(User.email == user_data.email, User.id != user_id)
         .first()
     )
-
     if existing_email:
-        raise HTTPException(status_code=400, detail="Email já cadastrado por outro usuário.")
+        raise HTTPException(status_code=400, detail="Email já cadastrado.")
 
-    user.name = data.name
-    user.email = data.email
-    user.role = data.role
-    user.is_active = data.is_active
+    user.name = user_data.name
+    user.email = user_data.email
+    user.role = user_data.role
+    user.is_active = user_data.is_active
 
     db.commit()
     db.refresh(user)
-
     return user
 
 
 @router.delete("/{user_id}", response_model=UserResponse)
-def deactivate_user(user_id: int, db: Session = Depends(get_db)):
+def deactivate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_or_gestor),
+):
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
@@ -100,5 +107,4 @@ def deactivate_user(user_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(user)
-
     return user
